@@ -3,6 +3,7 @@ public class App {
         System.out.println("Hello, World!");
         printCharacter('*', 30);
         printCharacter('-', 30);
+        loopWithException();
     }
     public static void printCharcater(char ch, int num){
         for (int cnt = 0; cnt < num; cnt++){
@@ -30,5 +31,6 @@ public class App {
         System.out.println("Done");
     }
 }
+
 
 
