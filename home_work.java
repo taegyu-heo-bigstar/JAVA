@@ -20,7 +20,7 @@ abstract class myObject
 	public static final int BUILDING = 0;
 	public static final int HUMAN = 1;
 	public static final int WARRIOR = 2;
-	public static final int ARCHAR = 3;
+	public static final int ARCHER = 3;
 	public static final int WIZARD = 4;
 	
 	protected int type;
@@ -106,7 +106,6 @@ class Human extends myObject implements movable
 	}
 }
 
-
 class Warrior extends Human implements attackable
 {
 	Warrior(int x, int y) {
@@ -128,6 +127,118 @@ class Warrior extends Human implements attackable
 			ob.hp -= 10; //
 		else 
 			System.out.println("범위 내 대상이 없습니다");
+	}
+}
+
+class Archer extends Human implements attackable
+{
+	private int arrow;
+
+	Archer(int x, int y) {
+		super(x, y, myObject.ARCHER, 1, 10, 20);
+		arrow = 0;
+		// TODO Auto-generated constructor stub
+	}
+
+	@Override
+	public void information() {
+		// TODO Auto-generated method stub
+		System.out.println("type : Archer" + " hp : " + hp + " pos : (" +x +","+ y +")");
+	}
+
+	@Override
+	public void attack(myObject ob) {
+		// TODO Auto-generated method stub
+		if (arrow <= 0)
+		{
+			System.out.println("화살이 없습니다");
+			return;
+		}
+		double dist = distance(this, ob);
+		if (ob.hp > 0 && dist <= range)
+			ob.hp -= 10; //
+		else 
+			System.out.println("범위 내 대상이 없습니다");
+		arrow--;
+		System.out.println("남은 화살 : " + arrow);
+	}
+
+	public void addArrow(int count)
+	{
+		arrow += count;
+		if (arrow < 0)
+			arrow = 0;
+		if (arrow > 20)
+			arrow = 20;
+		System.out.println("남은 화살 : " + arrow);
+	}
+}
+
+class Wizard extends Human implements attackable
+{
+	private int mp;
+
+	Wizard(int x, int y) {
+		super(x, y, myObject.WIZARD, 0.1, 20, 10);
+		mp = 0;
+		// TODO Auto-generated constructor stub
+	}
+
+	@Override
+	public void information() {
+		// TODO Auto-generated method stub
+		System.out.println("type : Wizard" + " hp : " + hp + " pos : (" +x +","+ y +")");
+	}
+
+	@Override
+	public void attack(myObject ob) {
+		// TODO Auto-generated method stub
+		if (mp < 0)
+		{
+			System.out.println("마나가 부족합니다");
+			return;
+		}
+		double dist = distance(this, ob);
+		if (ob.hp > 0 && dist <= range)
+			ob.hp -= 10; //
+		else 
+			System.out.println("범위 내 대상이 없습니다");
+		mp -= 1;
+		System.out.println("남은 마나 : " + mp);
+	}
+
+	public void criticalAttack(myObject ob)
+	{
+		if (mp < 5)
+		{
+			System.out.println("마나가 부족합니다");
+			return;
+		}
+		double dist = distance(this, ob);
+		if (ob.hp > 0 && dist <= range)
+			ob.hp -= 30; //
+		else 
+			System.out.println("범위 내 대상이 없습니다");
+		mp -= 5;
+		System.out.println("남은 마나 : " + mp);
+	}
+
+	public void addMP(int amount)
+	{
+		mp += amount;
+		if (mp < 0)
+			mp = 0;
+		if (mp > 10)
+			mp = 10;
+		System.out.println("남은 마나 : " + mp);
+	}
+
+	public void teleport(int x, int y)
+	{
+		this.x = x;
+		this.y = y;
+		mp -= 1;
+		System.out.println("텔레포트 완료. 현재 위치 : (" + this.x + "," + this.y +")");
 	}
 }
 
