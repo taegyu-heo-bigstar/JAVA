@@ -1,7 +1,10 @@
 import java.io.*;
 import java.util.Scanner;
 
-static String filePath = "accounts.txt";
+class Constants
+{
+    static final String filePath = "accounts.txt";
+}
 
 class Account
 {
@@ -205,5 +208,6 @@ static class AccountManager {
 public class Main {
 	public static void main(String[] args) {
         // 프로그램 실행 로직
+
     }   
 }
