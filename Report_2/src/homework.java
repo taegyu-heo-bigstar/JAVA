@@ -1,6 +1,8 @@
 import java.io.*;
 import java.util.Scanner;
 
+static String filePath = "accounts.txt";
+
 class Account
 {
 	private String code, own, pw;
@@ -66,6 +68,10 @@ static class AccountManager {
         int bal;
         System.out.print("계좌번호: ");
         code = scan.next();
+        if (isAccountExists(code)) {
+            System.out.println("이미 존재하는 계좌번호입니다.");
+            return null;
+        }
         System.out.print("예금주: ");
         own = scan.next();
         System.out.print("초기입금액: ");
@@ -87,7 +93,6 @@ static class AccountManager {
         }
 
         // 파일에 계좌 정보 저장 로직
-        String filePath = "accounts.txt"; // 예시 파일 경로
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(filePath, false))) {
 
             String line = code + "," + own + "," + bal + "," + pw;
@@ -106,7 +111,6 @@ static class AccountManager {
 
     public boolean isAccountExists(String code) {
         // 계좌 존재 여부 확인 로직
-        String filePath = "accounts.txt"; // 예시 파일 경로
         try (
             BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
@@ -129,7 +133,6 @@ static class AccountManager {
         }
 
         // 계좌 정보 로드 로직
-        String filePath = "accounts.txt"; // 예시 파일 경로
         try (
             BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
@@ -159,116 +162,138 @@ static class AccountManager {
 
         return true;
     }
+
+    public void saveAccountToFile(Account account) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(filePath, false))) {
+                String line = account.getCode() + "," + account.getOwner() + "," + account.getBal() + "," + account.getPw();
+                bw.write(line);
+                bw.newLine();
+        } catch (IOException e) {
+            System.out.println("파일 쓰기 중 오류 발생.");
+            e.printStackTrace();
+        }
+    }
+
+    public void depositToAccount(String code, int amount) {
+        Account account = getAccountByCode(code);
+        if (account != null) {
+            account.deposit(amount);
+            saveAccountToFile(account);
+        }
+    }
+
+    public void withdrawFromAccount(String code, int amount, String pw) {
+        Account account = getAccountByCode(code);
+        if (account != null) {
+            account.withdraw(amount, pw);
+            saveAccountToFile(account);
+        }
+    }
+
+    public void transferBetweenAccounts(String fromCode, String toCode, int amount, String pw) {
+        Account fromAccount = getAccountByCode(fromCode);
+        Account toAccount = getAccountByCode(toCode);
+        if (fromAccount != null && toAccount != null) {
+            fromAccount.transfer(toAccount, amount, pw);
+            saveAccountToFile(fromAccount);
+            saveAccountToFile(toAccount);
+        }
+    }
+
 }
 
 public class Main {
-    public static void main(String[] args) {
-        // [변경 1] 파일에서 읽어올 것이므로 넉넉한 크기로 배열 생성 (최대 100명)
-        Account acc[] = new Account[100];
-        int count = 0; // 실제 등록된 계좌 수를 카운트할 변수
-
-        // [변경 2] 파일 입출력을 통한 계좌 등록 로직
-        try {
-            File file = new File("accounts.txt"); // 읽어올 파일 객체 생성
-            Scanner fileScan = new Scanner(file);
-
-            while (fileScan.hasNext()) {
-                String code = fileScan.next();
-                String owner = fileScan.next();
-                int bal = fileScan.nextInt();
-                String pw = fileScan.next();
-
-                // 배열에 객체 생성하여 저장 및 카운트 증가
-                acc[count] = new Account(code, owner, bal, pw);
-                count++;
-            }
-            fileScan.close();
-            System.out.println("시스템: " + count + "개의 계좌 정보를 파일에서 로드했습니다.");
-
-        } catch (FileNotFoundException e) {
-            System.out.println("오류: accounts.txt 파일을 찾을 수 없습니다.");
-            return; // 파일이 없으면 프로그램 종료
-        } catch (Exception e) {
-            System.out.println("오류: 파일 읽기 중 문제가 발생했습니다.");
-            e.printStackTrace();
-            return;
-        }
-
-        Scanner scan = new Scanner(System.in);
-        String usercode;
-
-        while (true) {
-            System.out.print("계좌번호 : ");
-            usercode = scan.next();
-
-            // [변경 3] 기존의 숫자 3 대신 실제 로드된 개수(count)를 전달
-            int idx = Account.find(acc, count, usercode);
-
-            if (idx >= 0) {
-                int select = 0, amnt;
-                String code, pw;
-                System.out.println(acc[idx].getOwner() + "님 환영합니다");
-                while (select != 5) {
-                    System.out.print("1.입금 2.출금 3.송금 4.조회 5.종료 : ");
-                    select = scan.nextInt();
-                    switch (select) {
-                        case 1:
-                            System.out.print("입금액 : ");
-                            amnt = scan.nextInt();
-                            if (acc[idx].deposit(amnt)) {
-                                System.out.println("입금완료되었습니다. 잔액:" + acc[idx].getBal());
-                            } else {
-                                System.out.println("입금실패하였습니다");
-                            }
-                            break;
-                        case 2:
-                            System.out.print("출금액 : ");
-                            amnt = scan.nextInt();
-                            System.out.print("비밀번호 : ");
-                            pw = scan.next();
-                            if (acc[idx].withdraw(amnt, pw)) {
-                                System.out.println("출금완료되었습니다. 잔액:" + acc[idx].getBal());
-                            } else {
-                                System.out.println("출금실패하였습니다");
-                            }
-                            break;
-                        case 3:
-                            System.out.print("송금계좌 : ");
-                            code = scan.next();
-                            System.out.print("출금액 : ");
-                            amnt = scan.nextInt();
-                            System.out.print("비밀번호 : ");
-                            pw = scan.next();
-                            // [변경 4] 송금 대상 찾기에서도 count 변수 사용
-                            int tidx = Account.find(acc, count, code);
-                            if (tidx < 0) {
-                                System.out.println("등록된계좌가 아닙니다");
-                            } else {
-                                if (acc[idx].transfer(acc[tidx], amnt, pw)) {
-                                    System.out.println("송금완료되었습니다. 잔액:" + acc[idx].getBal());
-                                } else {
-                                    System.out.println("송금실패하였습니다");
-                                }
-                            }
-                            break;
-                        case 4:
-                            // 기존 코드에 4번(조회) 로직이 비어있어서 추가해 드립니다.
-                            System.out.print("비밀번호 : ");
-                            pw = scan.next();
-                            if(!acc[idx].show(pw)) {
-                                System.out.println("비밀번호가 일치하지 않습니다.");
-                            }
-                            break;
-                        case 5:
-                            break;
-                    }
-                }
-            } else if (usercode.equals("bye")) {
-                System.out.println("프로그램 종료");
-                break;
-            } else {
-                System.out.println("등록되지않은 계좌입니다");
-            }
-        }
-    }
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		Account acc[] = new Account[3];
+		acc[0] = new Account("1234-1234", "장용훈", 100000, "1234");
+		acc[1] = new Account("4321-4321", "홍길동", 100000, "4321");
+		acc[2] = new Account("1111-1111", "이순신", 100000, "1111");
+		
+		Scanner scan = new Scanner(System.in);
+		String usercode;
+		
+		while(true)
+		{
+			System.out.print("계좌번호 : ");
+			usercode = scan.next();
+			int idx = Account.find(acc, 3, usercode);
+			if(idx >= 0) // <<-배열속에서 계좌번호 찾는 코드로변경
+			{
+				int select=0, amnt;
+				String code, pw;
+				
+				System.out.println(acc[idx].getOwner() + "님 환영합니다");
+				while(select != 5)
+				{
+					System.out.print("1.입금 2.출금 3.송금 4.조회 5.종료 : ");
+					select = scan.nextInt();
+					switch(select)
+					{
+					case 1: 
+						System.out.print("입금액 : ");
+						amnt = scan.nextInt();
+						if(acc[idx].deposit(amnt))
+						{
+							System.out.println("입금완료되었습니다. 잔액:"+acc[idx].getBal());
+							
+						}
+						else {
+							System.out.println("입금실패하였습니다");
+						}
+						break;
+					case 2: 
+						System.out.print("출금액 : ");
+						amnt = scan.nextInt();
+						System.out.print("비밀번호 : ");
+						pw = scan.next();
+						if(acc[idx].withdraw(amnt, pw))
+						{
+							System.out.println("출금완료되었습니다. 잔액:" + acc[idx].getBal());
+						}
+						else {
+							System.out.println("출금실패하였습니다");
+						}
+						break;
+		
+					case 3: 
+						System.out.print("송금계좌 : ");
+						code= scan.next();
+						System.out.print("출금액 : ");
+						amnt = scan.nextInt();
+						System.out.print("비밀번호 : ");
+						pw = scan.next();
+						
+						int tidx = Account.find(acc, 3, code);
+						if(tidx < 0 ) 
+						{
+							System.out.println("등록된계좌가 아닙니다");
+						}
+						else
+						{
+							if(acc[idx].transfer(acc[tidx], amnt, pw))
+							{
+								System.out.println("송금완료되었습니다. 잔액:" + acc[idx].getBal());
+							}
+							else {
+								System.out.println("송금실패하였습니다");
+							}
+						}
+						break;
+					case 4: break;
+					case 5: break;
+					}
+				}
+			}
+			else if(usercode.equals("bye"))
+			{
+				System.out.println("프로그램 종료");
+				break;
+			}
+			else
+			{
+				System.out.println("등록되지않은 계좌입니다");
+			}
+		}
+	}
 }
