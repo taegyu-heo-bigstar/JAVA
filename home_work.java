@@ -174,7 +174,7 @@ class Archer extends Human implements attackable
 	}
 }
 
-class Wizard extends Human implements attackable
+class Wizard extends Human implements attackable, magicable
 {
 	private int mp;
 
@@ -191,7 +191,7 @@ class Wizard extends Human implements attackable
 	}
 
 	@Override
-	public void attack(myObject ob) {
+	public void magic(myObject ob) {
 		// TODO Auto-generated method stub
 		if (mp < 0)
 		{
@@ -207,7 +207,7 @@ class Wizard extends Human implements attackable
 		System.out.println("남은 마나 : " + mp);
 	}
 
-	public void criticalAttack(myObject ob)
+	public void superMagic(myObject ob)
 	{
 		if (mp < 5)
 		{
