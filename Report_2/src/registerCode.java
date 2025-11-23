@@ -171,20 +171,16 @@ class AccountManager {
 
     static boolean transfer(Account fromAccount, Account toAccount, int amount, String password) {
         if (fromAccount.transfer(toAccount, amount, password)) {
-            System.out.println("✅ 이체가 완료되었습니다.");
-            try {
-                BufferedWriter writer = new BufferedWriter(new FileWriter("account_info.txt", true));
-                writer.write("이체: " + amount + " to " + toAccount.getOwner());
-                writer.newLine();
-                writer.close();
-            } catch (Exception e) {
-                System.out.println("❌ 거래 내역 저장 중 오류가 발생했습니다.");
-                e.printStackTrace();
-                toAccount.withdraw(amount, "admin"); // 롤백
-                fromAccount.deposit(amount); // 롤백
+            if (saveAccountToFile(fromAccount, "account_info.txt") &&
+                saveAccountToFile(toAccount, "account_info.txt")) {
+                System.out.println("송금에 성공하였습니다.");
+                return true;
+            }
+            else {
+                System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
+                fromAccount.system_transfer(toAccount, amount, "admin"); // 롤백
                 return false;
             }
-            return true;
         } else {
             System.out.println("❌ 이체에 실패했습니다.");
             return false;
