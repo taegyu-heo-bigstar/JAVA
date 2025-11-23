@@ -61,34 +61,15 @@ class Account
 		return -1;
 	}
     
-    //추가된 시스템용 메서드
-    boolean system_withdraw(int amnt, String pw) {
-        if(!(pw == "admin")) return false;   // 관리자 권한 추가
-        if(this.bal < amnt) return false;
-        bal -= amnt;
-        return true;
-    }
-    boolean system_transfer(Account acc, int amnt, String pw) {
-        if(!(pw == "admin")) return false;   // 관리자 권한 추가
-        if(this.bal < amnt) return false;
-        bal -= amnt;
-        return acc.deposit(amnt);
-    }
-    boolean system_deposit(int amnt, String pw) {
-        if(!(pw == "admin")) return false;   // 관리자 권한 추가
-        return deposit(amnt);
-    }
-    String getCode(String pw) {
-        if (!this.pw.equals(pw)) return null;
-        return this.code;
-    }
-    String getPassword(String pw) {
-        if (!this.pw.equals(pw)) return null;
-        return this.pw;
+    //파일 저장을 위한 문자열 반환 메서드
+    @Override
+    public String toString() {
+        return code + " " + own + " " + bal + " " + pw;
     }
 }
 
 class AccountManager {
+
     static Account createAccount(Scanner scanner) {
         System.out.println("=== 계좌 생성===");
 
@@ -137,33 +118,32 @@ class AccountManager {
     }
 
     static boolean deposit(Account account, int amount) {
-        if (account.deposit(amount)) {
-            if (saveAccountToFile(account, "account_info.txt")) {
-                System.out.println("입금이 완료되었습니다.");
-                return true;
-            } else {
-                account.system_withdraw(amount, "admin"); // 롤백
-                System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
-                return false;
-            }
+        if (account.deposit(amount) && saveAccountToFile(account, null)) {
+            System.out.println("✅ 입금이 완료되었습니다.");
+            return true;
         } else {
+            String code = account.toString().split(" ")[0];
+            account = loadAccountFromFile(code, "account_info.txt");
+            if (account == null) {
+                System.out.println("원자성 침해됨. 프로그램을 종료합니다.");
+                System.exit(0);
+            }
             System.out.println("❌ 입금에 실패했습니다.");
             return false;
         }
     }
 
     static boolean withdraw(Account account, int amount, String password) {
-        if (account.withdraw(amount, password)) {
-            if (saveAccountToFile(account, "account_info.txt")) {
-                System.out.println("✅ 출금이 완료되었습니다.");
-                return true;
-            }
-            else {
-                System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
-                account.system_deposit(amount, password); // 롤백
-                return false;
-            }
+        if (account.withdraw(amount, password) && saveAccountToFile(account, null)) {
+            System.out.println("✅ 출금이 완료되었습니다.");
+            return true;
         } else {
+            String code = account.toString().split(" ")[0];
+            account = loadAccountFromFile(code, "account_info.txt");
+            if (account == null) {
+                System.out.println("원자성 침해됨. 프로그램을 종료합니다.");
+                System.exit(0);
+            }
             System.out.println("❌ 출금에 실패했습니다.");
             return false;
         }
@@ -171,16 +151,19 @@ class AccountManager {
 
     static boolean transfer(Account fromAccount, Account toAccount, int amount, String password) {
         if (fromAccount.transfer(toAccount, amount, password)) {
-            if (saveAccountToFile(fromAccount, "account_info.txt") &&
-                saveAccountToFile(toAccount, "account_info.txt")) {
-                System.out.println("송금에 성공하였습니다.");
-                return true;
-            }
-            else {
+            if (!saveAccountToFile(fromAccount, "account_info.txt") || !saveAccountToFile(toAccount, "account_info.txt"))
+            {
                 System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
-                fromAccount.system_transfer(toAccount, amount, "admin"); // 롤백
+                fromAccount = loadAccountFromFile(fromAccount.toString().split(" ")[0], "account_info.txt");
+                toAccount = loadAccountFromFile(toAccount.toString().split(" ")[0], "account_info.txt"); // 롤백
+                if (fromAccount == null || toAccount == null) {
+                    System.out.println("원자성 침해됨. 프로그램을 종료합니다.");
+                    System.exit(0);
+                }
                 return false;
             }
+            System.out.println("송금에 성공하였습니다.");
+            return true;
         } else {
             System.out.println("❌ 이체에 실패했습니다.");
             return false;
@@ -189,12 +172,8 @@ class AccountManager {
 
     private static boolean saveAccountToFile(Account account, String fileName) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
-            writer.write(account.getCode("admin") + " " +
-                        account.getOwner() + " " + 
-                        account.getBal()+ " " + 
-                        account.getPassword("admin"));
+            writer.write(account.toString());
             writer.newLine();
-
             System.out.println("✅ 파일 저장이 완료되었습니다: " + new File(fileName).getAbsolutePath());
             return true;
         } catch (IOException e) {
@@ -202,6 +181,27 @@ class AccountManager {
             e.printStackTrace();
             return false;
         }
+    }
+
+    private static Account loadAccountFromFile(String code, String fileName) {
+
+        try (Scanner fileScanner = new Scanner(new File(fileName))) {
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                String[] parts = line.split(" ");
+                if (parts[0].equals(code)) {
+                    String accNum = parts[0];
+                    String owner = parts[1];
+                    int balance = Integer.parseInt(parts[2]);
+                    String password = parts[3];
+                    return new Account(accNum, owner, balance, password);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("❌ 파일 읽기 중 오류가 발생했습니다.");
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private static String getValidInput(Scanner scanner, String prompt, String regex, String errorMsg) {
