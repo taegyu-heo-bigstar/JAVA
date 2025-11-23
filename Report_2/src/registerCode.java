@@ -139,13 +139,13 @@ class AccountManager {
     static boolean deposit(Account account, int amount) {
         if (account.deposit(amount)) {
             if (saveAccountToFile(account, "account_info.txt")) {
-                System.out.println("✅ 파일 저장이 완료되었습니다.");
+                System.out.println("입금이 완료되었습니다.");
+                return true;
             } else {
+                account.system_withdraw(amount, "admin"); // 롤백
                 System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
+                return false;
             }
-            System.out.println("✅ 입금이 완료되었습니다.");
-            saveAccountToFile(account, "account_info.txt");
-            return true;
         } else {
             System.out.println("❌ 입금에 실패했습니다.");
             return false;
