@@ -1,0 +1,180 @@
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Scanner;
+import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
+
+/*
+ * @breife: Account 클래스는 기존 클래스를 유지하되, 파일 입출력시에 객체의 정보를 얻기 수월하도록 toString 메서드를 오버라이드 하였습니다.
+ */
+class Account
+{
+	private String code, own, pw;
+	private int bal;
+	Account(String code, String own, int bal, String pw)
+	{
+		this.code = new String(code);
+		this.own = new String(own);
+		this.bal = bal;
+		this.pw = new String(pw);
+	}
+	boolean deposit(int amnt)
+	{
+		if(amnt<0) return false;
+		bal += amnt;
+		return true;
+	}
+	boolean withdraw(int amnt, String pw)
+	{
+		if(!this.pw.equals(pw)) return false;
+		if(this.bal < amnt) return false;
+		bal -= amnt;
+		return true;
+	}
+	boolean transfer(Account acc, int amnt, String pw)
+	{
+		if(!withdraw(amnt, pw)) return false;
+		return acc.deposit(amnt);
+	}
+	boolean show(String pw)
+	{
+		if(!this.pw.equals(pw)) return false;
+		System.out.println(own+"님의 잔액 : " + bal);
+		return true;
+	}
+	String getOwner()
+	{
+		return own;
+	}
+	int getBal()
+	{
+		return bal;
+	}
+	static int find(Account acc[], int cnt, String code)
+	{
+		for(int i=0; i<cnt; i++)
+		{
+			if(acc[i].code.equals(code))
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+    
+    //파일 저장을 위한 문자열 반환 메서드
+    @Override
+    public String toString() {
+        return code + " " + own + " " + bal + " " + pw;
+    }
+}
+
+/*
+ * @breife: AccountManager_register 클래스는 계좌 생성시 계좌 정보를 파일에 저장합니다.
+ *          각 계좌는 계좌 번호를 key로 하여 고유하게 분리되어, 행으로 저장됩니다.
+ *          각 계좌의 정보는 계좌 번호가 저장된 행에 " "을 구분자로 하여 순차로 저장됩니다.
+ *          
+ * 
+ * @note: 파일 입출력 경로는 "./account_info.txt" 으로 사용합니다.
+ */
+class AccountManager_register {
+
+    static Account createAccount(Scanner scanner) {
+        List<Account> accounts = new ArrayList<>();
+        loadAllAccountsFromFile("account_info.txt", accounts);
+
+        System.out.println("=== 계좌 생성===");
+
+        // 1. 사용자 입력 및 정규식 검증
+        String accNum = getValidInput(
+                scanner,
+                "계좌번호를 입력하세요 (형식: 1234-1234): ",
+                "^\\d{4}-\\d{4}$",
+                "잘못된 형식입니다. '1234-1234' 형태로 입력해주세요."
+        ); 
+        if (accounts.size() > 0 && Account.find(accounts.toArray(new Account[0]), accounts.size(), accNum) != -1) {
+            System.out.println("이미 존재하는 계좌번호입니다. 다른 번호를 입력해주세요.");
+            return createAccount(scanner);
+        }
+
+        String owner = getValidInput(
+                scanner,
+                "소유자 이름을 입력하세요 (한글 또는 영문): ",
+                "^[가-힣a-zA-Z]+$",
+                "이름은 한글 또는 영문만 가능합니다."
+        );
+
+        String balanceStr = getValidInput(
+                scanner,
+                "잔액을 입력하세요 (숫자만): ",
+                "^[0-9]+$",
+                "0 이상의 숫자만 입력해주세요."
+        );
+        int balance = Integer.parseInt(balanceStr);
+
+        String password = getValidInput(
+                scanner,
+                "비밀번호를 입력하세요 (4자리 이상): ",
+                "^.{4,}$",
+                "비밀번호는 최소 4자리 이상이어야 합니다."
+        );
+
+        // 2. Account 객체 생성
+        Account myAccount = new Account(accNum, owner, balance, password);
+
+        // 3. 파일 저장
+        if (!saveAccountToFile(myAccount, "account_info.txt")) {
+            System.out.println("계좌 생성에 실패했습니다.");
+        } else {
+            System.out.println("✅ 계좌가 성공적으로 생성되었습니다.");
+        }
+
+        return myAccount;
+    }
+
+    private static boolean saveAccountToFile(Account account, String fileName) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
+            writer.write(account.toString());
+            writer.newLine();
+            System.out.println("✅ 파일 저장이 완료되었습니다: " + new File(fileName).getAbsolutePath());
+            return true;
+        } catch (IOException e) {
+            System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private static String getValidInput(Scanner scanner, String prompt, String regex, String errorMsg) {
+        String input;
+        while (true) {
+            System.out.print(prompt);
+            input = scanner.nextLine();
+            if (Pattern.matches(regex, input)) {
+                break;
+            } else {
+                System.out.println(errorMsg);
+            }
+        }
+        return input;
+    }
+}
+
+/*
+ * @breife: registerCode 클래스는 메인 실행 클래스로, 코드의 동작을 테스트 하기위해 제작되었습니다.      
+ */
+public class registerCode {
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("생성할 계좌의 수");
+        int numAccounts = Integer.parseInt(scanner.nextLine());
+        Account[] accounts = new Account[numAccounts];
+        for (int i = 0; i < numAccounts; i++) {
+            accounts[i] = AccountManager.createAccount(scanner);
+        }
+    }   
+}
