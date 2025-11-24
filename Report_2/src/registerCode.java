@@ -74,9 +74,11 @@ class Account
 
 /*
  * @breife: AccountManager 클래스는 계좌 생성을 비롯해 입금, 출금, 이체시의 원자성 유지 기능을 담당하며, 파일 입출력과 연동하여 계좌 정보를 관리합니다.
+ *          파일에서 계좌 정보를 불러오는 기능은 public static 메서드로 구현되어 있어, 다른 클래스에서도 쉽게 접근할 수 있습니다.
+ *          반면, 파일의 계좌 정보를 저장하는 기능은 private static 메서드로 구현되어 있어, 외부에서 직접 호출할 수 없도록 제한됩니다.
+ *          이는 계좌 정보의 무결성을 유지하기 위함입니다.
  * 
  * @note: 모든 파일 입출력은 "account_info.txt" 파일을 사용합니다.
- * 
  */
 class AccountManager {
 
@@ -258,7 +260,9 @@ class AccountManager {
 
 }
 
-// 2. 실행 및 파일 저장 클래스
+/*
+ * @breife: registerCode 클래스는 메인 실행 클래스로, 코드의 동작을 테스트 하기위해 제작되었습니다.      
+ */
 public class registerCode {
 
     public static void main(String[] args) {
