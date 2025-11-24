@@ -7,7 +7,9 @@ import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.List;
 
-// 1. Account 객체 정의
+/*
+ * @breife: Account 클래스는 기존 클래스를 유지하되, 파일 입출력시에 객체의 정보를 얻기 수월하도록 toString 메서드를 오버라이드 하였습니다.
+ */
 class Account
 {
 	private String code, own, pw;
@@ -70,6 +72,12 @@ class Account
     }
 }
 
+/*
+ * @breife: AccountManager 클래스는 계좌 생성을 비롯해 입금, 출금, 이체시의 원자성 유지 기능을 담당하며, 파일 입출력과 연동하여 계좌 정보를 관리합니다.
+ * 
+ * @note: 모든 파일 입출력은 "account_info.txt" 파일을 사용합니다.
+ * 
+ */
 class AccountManager {
 
     static Account createAccount(Scanner scanner) {
@@ -281,7 +289,7 @@ public class registerCode {
             String accountNumber = scanner.nextLine();
             int acc = Account.find(accounts, 2, accountNumber);
             Account selectedAccount = accounts[acc];
-            
+
             System.out.println("1. 입금 2. 출금 3. 이체 4. 잔액 조회");
             int action = Integer.parseInt(scanner.nextLine());
             switch (action) {
