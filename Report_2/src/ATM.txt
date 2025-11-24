@@ -76,9 +76,9 @@ import java.util.List;
 /*
  * @breife: AccountManager_withoutRegister 클래스는 입금, 출금, 이체시의 원자성 유지 기능을 담당하며, 파일 입출력과 연동하여 계좌 정보를 관리합니다.
  *          파일에서 계좌 정보를 불러오는 기능은 public static 메서드로 구현되어 있어, 다른 클래스에서도 쉽게 접근할 수 있습니다.
- *          반면, 파일의 계좌 정보를 저장하는 기능은 AccountManager_register 클래스의 private static 메서드로 구현되어 있습니다.
- *          이를 통해 파일의 정보를 저장하는 기능은 외부에서 직접 호출할 수 없도록 제한됩니다.
- *          이는 계좌 정보의 무결성을 유지하기 위함입니다.
+ *          파일의 계좌 정보를 저장하는 기능은 AccountManager_register 클래스의 private static 메서드로 구현하였으나,
+ *          코드가 두 개의 파일로 분리된 고로 동작을 위해 public으로 수정되었있습니다.
+ *          최초에 private로 구현한 이유는 계좌 정보의 무결성을 유지하기 위함입니다.
  * 
  * @note: 모든 파일 입출력은 동일하게 "account_info.txt" 파일을 사용합니다.
  */
@@ -200,7 +200,7 @@ public class registerCode {
             System.out.print("계속 진행하시겠습니까? (y/n): ");
 
             List<Account> accountList = new ArrayList<>();
-            AccountManager.loadAllAccountsFromFile("account_info.txt", accountList);
+            AccountManager_withoutRegister.loadAllAccountsFromFile("account_info.txt", accountList);
             int size = accountList.size();
             accounts = accountList.toArray(new Account[size]);
 
@@ -227,14 +227,14 @@ public class registerCode {
                 case 1:
                     System.out.print("입금할 금액을 입력하세요: ");
                     int depositAmount = Integer.parseInt(scanner.nextLine());
-                    AccountManager.deposit(selectedAccount, depositAmount);
+                    AccountManager_withoutRegister.deposit(selectedAccount, depositAmount);
                     break;
                 case 2:
                     System.out.print("출금할 금액을 입력하세요: ");
                     int withdrawAmount = Integer.parseInt(scanner.nextLine());
                     System.out.print("비밀번호를 입력하세요: ");
                     String withdrawPw = scanner.nextLine();
-                    AccountManager.withdraw(selectedAccount, withdrawAmount, withdrawPw);
+                    AccountManager_withoutRegister.withdraw(selectedAccount, withdrawAmount, withdrawPw);
                     break;
                 case 3:
                     System.out.print("이체할 금액을 입력하세요: ");
@@ -244,7 +244,7 @@ public class registerCode {
                     Account toAccount = accounts[toAccIndex];
                     System.out.print("비밀번호를 입력하세요: ");
                     String transferPw = scanner.nextLine();
-                    AccountManager.transfer(selectedAccount, toAccount, transferAmount, transferPw);
+                    AccountManager_withoutRegister.transfer(selectedAccount, toAccount, transferAmount, transferPw);
                     break;
                 case 4:
                     System.out.print("비밀번호를 입력하세요: ");
