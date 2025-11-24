@@ -291,7 +291,11 @@ public class registerCode {
 
             System.out.println("관리할 계좌의 계좌번호를 입력하세요. : ");
             String accountNumber = scanner.nextLine();
-            int acc = Account.find(accounts, 2, accountNumber);
+            int acc = Account.find(accounts, size, accountNumber);
+            if (acc == -1) {
+                System.out.println("존재하지 않는 계좌번호입니다.");
+                continue;
+            }
             Account selectedAccount = accounts[acc];
 
             System.out.println("1. 입금 2. 출금 3. 이체 4. 잔액 조회");
