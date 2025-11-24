@@ -164,17 +164,17 @@ class AccountManager_register {
 }
 
 /*
- * @breife: registerCode 클래스는 메인 실행 클래스로, 코드의 동작을 테스트 하기위해 제작되었습니다.      
+ * @breife: registerCode 클래스는 메인 실행 클래스로, 코드의 동작을 테스트 하기위해 제작되었습니다. 필요시 주석을 제거하여 사용할 수 있습니다.     
  */
 public class registerCode {
 
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("생성할 계좌의 수");
-        int numAccounts = Integer.parseInt(scanner.nextLine());
-        Account[] accounts = new Account[numAccounts];
-        for (int i = 0; i < numAccounts; i++) {
-            accounts[i] = AccountManager.createAccount(scanner);
-        }
-    }   
+   public static void main(String[] args) {
+       Scanner scanner = new Scanner(System.in);
+       System.out.println("생성할 계좌의 수");
+       int numAccounts = Integer.parseInt(scanner.nextLine());
+       Account[] accounts = new Account[numAccounts];
+       for (int i = 0; i < numAccounts; i++) {
+           accounts[i] = AccountManager_register.createAccount(scanner);
+       }
+   }   
 }
