@@ -4,6 +4,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
 
 // 1. Account 객체 정의
 class Account
@@ -71,6 +73,9 @@ class Account
 class AccountManager {
 
     static Account createAccount(Scanner scanner) {
+        List<Account> accounts = new ArrayList<>();
+        loadAllAccountsFromFile("account_info.txt", accounts);
+
         System.out.println("=== 계좌 생성===");
 
         // 1. 사용자 입력 및 정규식 검증
@@ -79,7 +84,11 @@ class AccountManager {
                 "계좌번호를 입력하세요 (형식: 1234-1234): ",
                 "^\\d{4}-\\d{4}$",
                 "잘못된 형식입니다. '1234-1234' 형태로 입력해주세요."
-        );
+        ); 
+        if (accounts.size() > 0 && Account.find(accounts.toArray(new Account[0]), accounts.size(), accNum) != -1) {
+            System.out.println("이미 존재하는 계좌번호입니다. 다른 번호를 입력해주세요.");
+            return createAccount(scanner);
+        }
 
         String owner = getValidInput(
                 scanner,
@@ -88,7 +97,6 @@ class AccountManager {
                 "이름은 한글 또는 영문만 가능합니다."
         );
 
-        // 잔액은 정수만 입력받음
         String balanceStr = getValidInput(
                 scanner,
                 "잔액을 입력하세요 (숫자만): ",
@@ -118,7 +126,7 @@ class AccountManager {
     }
 
     static boolean deposit(Account account, int amount) {
-        if (account.deposit(amount) && saveAccountToFile(account, null)) {
+        if (account.deposit(amount) && saveAccountToFile(account, "account_info.txt")) {
             System.out.println("✅ 입금이 완료되었습니다.");
             return true;
         } else {
@@ -134,7 +142,7 @@ class AccountManager {
     }
 
     static boolean withdraw(Account account, int amount, String password) {
-        if (account.withdraw(amount, password) && saveAccountToFile(account, null)) {
+        if (account.withdraw(amount, password) && saveAccountToFile(account, "account_info.txt")) {
             System.out.println("✅ 출금이 완료되었습니다.");
             return true;
         } else {
@@ -171,7 +179,7 @@ class AccountManager {
     }   
 
     private static boolean saveAccountToFile(Account account, String fileName) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
             writer.write(account.toString());
             writer.newLine();
             System.out.println("✅ 파일 저장이 완료되었습니다: " + new File(fileName).getAbsolutePath());
@@ -183,7 +191,7 @@ class AccountManager {
         }
     }
 
-    private static Account loadAccountFromFile(String code, String fileName) {
+    public static Account loadAccountFromFile(String code, String fileName) {
 
         try (Scanner fileScanner = new Scanner(new File(fileName))) {
             while (fileScanner.hasNextLine()) {
@@ -202,6 +210,28 @@ class AccountManager {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public static void loadAllAccountsFromFile(String fileName, List<Account> accounts) {
+        File file = new File(fileName);
+        if (!file.exists()) {
+            return; 
+        }
+
+        try (Scanner fileScanner = new Scanner(new File(fileName))) {
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                String[] parts = line.split(" ");
+                String accNum = parts[0];
+                String owner = parts[1];
+                int balance = Integer.parseInt(parts[2]);
+                String password = parts[3];
+                accounts.add(new Account(accNum, owner, balance, password));
+            }
+        } catch (IOException e) {
+            System.out.println("❌ 파일 읽기 중 오류가 발생했습니다.");
+            e.printStackTrace();
+        }
     }
 
     private static String getValidInput(Scanner scanner, String prompt, String regex, String errorMsg) {
@@ -225,12 +255,20 @@ public class registerCode {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        Account[] accounts = new Account[2];
-        for (int i = 0; i < 2; i++) {
+        System.out.println("생성할 계좌의 수");
+        int numAccounts = Integer.parseInt(scanner.nextLine());
+        Account[] accounts = new Account[numAccounts];
+        for (int i = 0; i < numAccounts; i++) {
             accounts[i] = AccountManager.createAccount(scanner);
         }
         while (true) {
             System.out.print("계속 진행하시겠습니까? (y/n): ");
+
+            List<Account> accountList = new ArrayList<>();
+            AccountManager.loadAllAccountsFromFile("account_info.txt", accountList);
+            int size = accountList.size();
+            accounts = accountList.toArray(new Account[size]);
+
             String choice = scanner.nextLine();
             if (choice.equalsIgnoreCase("n")) {
                 System.out.println("프로그램을 종료합니다.");
@@ -238,10 +276,12 @@ public class registerCode {
             } else if (!choice.equalsIgnoreCase("y")) {
                 System.out.println("잘못된 입력입니다. 다시 시도해주세요.");
             }
+
             System.out.println("관리할 계좌의 계좌번호를 입력하세요. : ");
             String accountNumber = scanner.nextLine();
             int acc = Account.find(accounts, 2, accountNumber);
             Account selectedAccount = accounts[acc];
+            
             System.out.println("1. 입금 2. 출금 3. 이체 4. 잔액 조회");
             int action = Integer.parseInt(scanner.nextLine());
             switch (action) {
