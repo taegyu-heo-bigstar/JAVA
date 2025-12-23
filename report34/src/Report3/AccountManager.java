@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 /*
  * @breife: AccountManager 클래스는 계좌 생성을 비롯해 입금, 출금, 이체시의 원자성 유지 기능을 담당하며, 파일 입출력과 연동하여 계좌 정보를 관리합니다.
@@ -19,6 +20,8 @@ import java.util.Map;
  * @note: 모든 파일 입출력은 "account_info.csv" 파일을 사용합니다.
  */
 public class AccountManager {
+
+    private static final ReentrantLock FILE_IO_LOCK = new ReentrantLock();
 
     public static final class Result {
         public final boolean ok;
@@ -48,14 +51,14 @@ public class AccountManager {
     public static class Account {
         private final String code;
         private final String own;
-        private final String pw;
+        private final String pwRecord;
         private int bal;
 
-        Account(String code, String own, int bal, String pw) {
+        Account(String code, String own, int bal, String pwRecord) {
             this.code = code;
             this.own = own;
             this.bal = bal;
-            this.pw = pw;
+            this.pwRecord = pwRecord;
         }
 
         boolean deposit(int amnt) {
@@ -66,7 +69,7 @@ public class AccountManager {
 
         boolean withdraw(int amnt, String pw) {
             if (amnt <= 0) return false;
-            if (!this.pw.equals(pw)) return false;
+            if (!verifyPassword(pw)) return false;
             if (this.bal < amnt) return false;
             bal -= amnt;
             return true;
@@ -80,12 +83,22 @@ public class AccountManager {
         }
 
         boolean show(String pw) {
-            if (!this.pw.equals(pw)) return false;
-            return true;
+            return verifyPassword(pw);
         }
 
         boolean verifyPassword(String pw) {
-            return this.pw.equals(pw);
+            return PasswordHasher.verify(pw, this.pwRecord);
+        }
+
+        boolean hasLegacyPasswordRecord() {
+            return PasswordHasher.isLegacyPlaintextRecord(this.pwRecord);
+        }
+
+        Account withHashedPasswordRecord(String plainPassword) {
+            if (plainPassword == null) return this;
+            if (!verifyPassword(plainPassword)) return this;
+            if (!hasLegacyPasswordRecord()) return this;
+            return new Account(this.code, this.own, this.bal, PasswordHasher.hash(plainPassword));
         }
 
         String getOwner() {
@@ -103,7 +116,7 @@ public class AccountManager {
         // CSV 저장(한 줄) 포맷: code,owner,balance,password
         @Override
         public String toString() {
-            return csvField(code) + "," + csvField(own) + "," + bal + "," + csvField(pw);
+            return csvField(code) + "," + csvField(own) + "," + bal + "," + csvField(pwRecord);
         }
 
         static Account fromString(String line) {
@@ -114,8 +127,8 @@ public class AccountManager {
             String code = fields.get(0);
             String owner = fields.get(1);
             int balance = Integer.parseInt(fields.get(2));
-            String password = fields.get(3);
-            return new Account(code, owner, balance, password);
+            String pwRecord = fields.get(3);
+            return new Account(code, owner, balance, pwRecord);
         }
 
         private static String csvField(String value) {
@@ -272,7 +285,7 @@ public class AccountManager {
         if (accounts == null) return copy;
         for (Account acc : accounts.values()) {
             if (acc == null) continue;
-            Account cloned = new Account(acc.code, acc.own, acc.bal, acc.pw);
+            Account cloned = new Account(acc.code, acc.own, acc.bal, acc.pwRecord);
             copy.put(cloned.getCode(), cloned);
         }
         return copy;
@@ -289,6 +302,7 @@ public class AccountManager {
         if (!Files.exists(ACCOUNT_FILE)) {
             return accounts;
         }
+        FILE_IO_LOCK.lock();
         try {
             List<String> lines = Files.readAllLines(ACCOUNT_FILE, StandardCharsets.UTF_8);
             for (String line : lines) {
@@ -300,12 +314,15 @@ public class AccountManager {
             }
         } catch (IOException | RuntimeException e) {
             // GUI 전용 모드: 호출 측에서 필요 시 처리(여기서는 조용히 빈 목록 반환)
+        } finally {
+            FILE_IO_LOCK.unlock();
         }
         return accounts;
     }
 
     public static boolean saveAllAccounts(Map<String, Account> accounts) {
         Path parent = ACCOUNT_FILE.getParent();
+        FILE_IO_LOCK.lock();
         try {
             if (parent != null) Files.createDirectories(parent);
             Path tmp = ACCOUNT_FILE.resolveSibling(ACCOUNT_FILE.getFileName().toString() + ".tmp");
@@ -319,6 +336,8 @@ public class AccountManager {
             return true;
         } catch (IOException e) {
             return false;
+        } finally {
+            FILE_IO_LOCK.unlock();
         }
     }
 
@@ -329,11 +348,13 @@ public class AccountManager {
         if (balance < 0) return false;
         if (password.length() < 4) return false;
 
-        Map<String, Account> snapshot = deepCopyAccounts(accounts);
-        snapshot.put(accNum, new Account(accNum, owner, balance, password));
-        if (!saveAllAccounts(snapshot)) return false;
-        commitAccounts(accounts, snapshot);
-        return true;
+        synchronized (accounts) {
+            Map<String, Account> snapshot = deepCopyAccounts(accounts);
+            snapshot.put(accNum, new Account(accNum, owner, balance, PasswordHasher.hash(password)));
+            if (!saveAllAccounts(snapshot)) return false;
+            commitAccounts(accounts, snapshot);
+            return true;
+        }
     }
 
     public static boolean deposit(Map<String, Account> accounts, Account account, int amount) {
@@ -344,16 +365,18 @@ public class AccountManager {
             return false;
         }
 
-        Map<String, Account> snapshot = deepCopyAccounts(accounts);
-        Account snapAcc = snapshot.get(account.getCode());
-        if (snapAcc == null || !snapAcc.deposit(amount)) {
-            return false;
+        synchronized (accounts) {
+            Map<String, Account> snapshot = deepCopyAccounts(accounts);
+            Account snapAcc = snapshot.get(account.getCode());
+            if (snapAcc == null || !snapAcc.deposit(amount)) {
+                return false;
+            }
+            if (!saveAllAccounts(snapshot)) {
+                return false;
+            }
+            commitAccounts(accounts, snapshot);
+            return true;
         }
-        if (!saveAllAccounts(snapshot)) {
-            return false;
-        }
-        commitAccounts(accounts, snapshot);
-        return true;
     }
 
     public static boolean withdraw(Map<String, Account> accounts, Account account, int amount, String password) {
@@ -364,16 +387,25 @@ public class AccountManager {
             return false;
         }
 
-        Map<String, Account> snapshot = deepCopyAccounts(accounts);
-        Account snapAcc = snapshot.get(account.getCode());
-        if (snapAcc == null || !snapAcc.withdraw(amount, password)) {
-            return false;
+        synchronized (accounts) {
+            Map<String, Account> snapshot = deepCopyAccounts(accounts);
+            Account snapAcc = snapshot.get(account.getCode());
+            if (snapAcc == null) {
+                return false;
+            }
+            if (snapAcc.hasLegacyPasswordRecord() && snapAcc.verifyPassword(password)) {
+                snapAcc = snapAcc.withHashedPasswordRecord(password);
+                snapshot.put(snapAcc.getCode(), snapAcc);
+            }
+            if (!snapAcc.withdraw(amount, password)) {
+                return false;
+            }
+            if (!saveAllAccounts(snapshot)) {
+                return false;
+            }
+            commitAccounts(accounts, snapshot);
+            return true;
         }
-        if (!saveAllAccounts(snapshot)) {
-            return false;
-        }
-        commitAccounts(accounts, snapshot);
-        return true;
     }
 
     public static boolean transfer(Map<String, Account> accounts, Account fromAccount, Account toAccount, int amount, String password) {
@@ -384,16 +416,25 @@ public class AccountManager {
             return false;
         }
 
-        Map<String, Account> snapshot = deepCopyAccounts(accounts);
-        Account fromSnap = snapshot.get(fromAccount.getCode());
-        Account toSnap = snapshot.get(toAccount.getCode());
-        if (fromSnap == null || toSnap == null || !fromSnap.transfer(toSnap, amount, password)) {
-            return false;
+        synchronized (accounts) {
+            Map<String, Account> snapshot = deepCopyAccounts(accounts);
+            Account fromSnap = snapshot.get(fromAccount.getCode());
+            Account toSnap = snapshot.get(toAccount.getCode());
+            if (fromSnap == null || toSnap == null) {
+                return false;
+            }
+            if (fromSnap.hasLegacyPasswordRecord() && fromSnap.verifyPassword(password)) {
+                fromSnap = fromSnap.withHashedPasswordRecord(password);
+                snapshot.put(fromSnap.getCode(), fromSnap);
+            }
+            if (!fromSnap.transfer(toSnap, amount, password)) {
+                return false;
+            }
+            if (!saveAllAccounts(snapshot)) {
+                return false;
+            }
+            commitAccounts(accounts, snapshot);
+            return true;
         }
-        if (!saveAllAccounts(snapshot)) {
-            return false;
-        }
-        commitAccounts(accounts, snapshot);
-        return true;
     }
 }

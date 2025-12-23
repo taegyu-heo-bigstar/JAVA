@@ -45,16 +45,32 @@ public class UserInterface {
             String balText = balanceField.getText();
             String pw = new String(pwField.getPassword());
 
-            AccountManager.Result result = AccountManager.createAccountFromUi(accounts, acc, owner, balText, pw);
-            if (result.ok) {
-                showInfo(result.message);
-                accField.setText("");
-                ownerField.setText("");
-                balanceField.setText("");
-                pwField.setText("");
-            } else {
-                showError(result.message);
-            }
+            createBtn.setEnabled(false);
+            new SwingWorker<AccountManager.Result, Void>() {
+                @Override
+                protected AccountManager.Result doInBackground() {
+                    return AccountManager.createAccountFromUi(accounts, acc, owner, balText, pw);
+                }
+
+                @Override
+                protected void done() {
+                    createBtn.setEnabled(true);
+                    try {
+                        AccountManager.Result result = get();
+                        if (result.ok) {
+                            showInfo(result.message);
+                            accField.setText("");
+                            ownerField.setText("");
+                            balanceField.setText("");
+                            pwField.setText("");
+                        } else {
+                            showError(result.message);
+                        }
+                    } catch (Exception ex) {
+                        showError("처리 중 오류가 발생했습니다.");
+                    }
+                }
+            }.execute();
         });
 
         return formPanel(
@@ -70,14 +86,33 @@ public class UserInterface {
 
         JButton depositBtn = new JButton("입금");
         depositBtn.addActionListener(e -> {
-            AccountManager.Result result = AccountManager.depositFromUi(accounts, accField.getText(), amountField.getText());
-            if (result.ok) {
-                showInfo(result.message);
-                accField.setText("");
-                amountField.setText("");
-            } else {
-                showError(result.message);
-            }
+            String acc = accField.getText();
+            String amount = amountField.getText();
+
+            depositBtn.setEnabled(false);
+            new SwingWorker<AccountManager.Result, Void>() {
+                @Override
+                protected AccountManager.Result doInBackground() {
+                    return AccountManager.depositFromUi(accounts, acc, amount);
+                }
+
+                @Override
+                protected void done() {
+                    depositBtn.setEnabled(true);
+                    try {
+                        AccountManager.Result result = get();
+                        if (result.ok) {
+                            showInfo(result.message);
+                            accField.setText("");
+                            amountField.setText("");
+                        } else {
+                            showError(result.message);
+                        }
+                    } catch (Exception ex) {
+                        showError("처리 중 오류가 발생했습니다.");
+                    }
+                }
+            }.execute();
         });
 
         return formPanel(
@@ -94,16 +129,35 @@ public class UserInterface {
 
         JButton withdrawBtn = new JButton("출금");
         withdrawBtn.addActionListener(e -> {
+            String acc = accField.getText();
+            String amount = amountField.getText();
             String pw = new String(pwField.getPassword());
-            AccountManager.Result result = AccountManager.withdrawFromUi(accounts, accField.getText(), amountField.getText(), pw);
-            if (result.ok) {
-                showInfo(result.message);
-                accField.setText("");
-                amountField.setText("");
-                pwField.setText("");
-            } else {
-                showError(result.message);
-            }
+
+            withdrawBtn.setEnabled(false);
+            new SwingWorker<AccountManager.Result, Void>() {
+                @Override
+                protected AccountManager.Result doInBackground() {
+                    return AccountManager.withdrawFromUi(accounts, acc, amount, pw);
+                }
+
+                @Override
+                protected void done() {
+                    withdrawBtn.setEnabled(true);
+                    try {
+                        AccountManager.Result result = get();
+                        if (result.ok) {
+                            showInfo(result.message);
+                            accField.setText("");
+                            amountField.setText("");
+                            pwField.setText("");
+                        } else {
+                            showError(result.message);
+                        }
+                    } catch (Exception ex) {
+                        showError("처리 중 오류가 발생했습니다.");
+                    }
+                }
+            }.execute();
         });
 
         return formPanel(
@@ -121,23 +175,37 @@ public class UserInterface {
 
         JButton transferBtn = new JButton("이체");
         transferBtn.addActionListener(e -> {
+            String from = fromField.getText();
+            String to = toField.getText();
+            String amount = amountField.getText();
             String pw = new String(pwField.getPassword());
-            AccountManager.Result result = AccountManager.transferFromUi(
-                    accounts,
-                    fromField.getText(),
-                    toField.getText(),
-                    amountField.getText(),
-                    pw
-            );
-            if (result.ok) {
-                showInfo(result.message);
-                fromField.setText("");
-                toField.setText("");
-                amountField.setText("");
-                pwField.setText("");
-            } else {
-                showError(result.message);
-            }
+
+            transferBtn.setEnabled(false);
+            new SwingWorker<AccountManager.Result, Void>() {
+                @Override
+                protected AccountManager.Result doInBackground() {
+                    return AccountManager.transferFromUi(accounts, from, to, amount, pw);
+                }
+
+                @Override
+                protected void done() {
+                    transferBtn.setEnabled(true);
+                    try {
+                        AccountManager.Result result = get();
+                        if (result.ok) {
+                            showInfo(result.message);
+                            fromField.setText("");
+                            toField.setText("");
+                            amountField.setText("");
+                            pwField.setText("");
+                        } else {
+                            showError(result.message);
+                        }
+                    } catch (Exception ex) {
+                        showError("처리 중 오류가 발생했습니다.");
+                    }
+                }
+            }.execute();
         });
 
         return formPanel(
@@ -153,13 +221,31 @@ public class UserInterface {
 
         JButton showBtn = new JButton("조회");
         showBtn.addActionListener(e -> {
+            String acc = accField.getText();
             String pw = new String(pwField.getPassword());
-            AccountManager.Result result = AccountManager.balanceFromUi(accounts, accField.getText(), pw);
-            if (result.ok) {
-                showInfo(result.message);
-            } else {
-                showError(result.message);
-            }
+
+            showBtn.setEnabled(false);
+            new SwingWorker<AccountManager.Result, Void>() {
+                @Override
+                protected AccountManager.Result doInBackground() {
+                    return AccountManager.balanceFromUi(accounts, acc, pw);
+                }
+
+                @Override
+                protected void done() {
+                    showBtn.setEnabled(true);
+                    try {
+                        AccountManager.Result result = get();
+                        if (result.ok) {
+                            showInfo(result.message);
+                        } else {
+                            showError(result.message);
+                        }
+                    } catch (Exception ex) {
+                        showError("처리 중 오류가 발생했습니다.");
+                    }
+                }
+            }.execute();
         });
 
         return formPanel(
