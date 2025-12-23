@@ -1,12 +1,10 @@
+package Report3;
+
 import javax.swing.*;
 import java.awt.*;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 public class UserInterface {
-
-    private static final String ACC_REGEX = "^\\d{4}-\\d{4}$";
-    private static final String OWNER_REGEX = "^[가-힣a-zA-Z]+$";
 
     private final Map<String, AccountManager.Account> accounts;
 
@@ -42,38 +40,20 @@ public class UserInterface {
 
         JButton createBtn = new JButton("생성");
         createBtn.addActionListener(e -> {
-            String acc = accField.getText().trim();
-            String owner = ownerField.getText().trim();
-            String balText = balanceField.getText().trim();
+            String acc = accField.getText();
+            String owner = ownerField.getText();
+            String balText = balanceField.getText();
             String pw = new String(pwField.getPassword());
 
-            if (!Pattern.matches(ACC_REGEX, acc)) {
-                showError("계좌번호 형식이 올바르지 않습니다. 예: 1234-1234");
-                return;
-            }
-            if (accounts.containsKey(acc)) {
-                showError("이미 존재하는 계좌번호입니다.");
-                return;
-            }
-            if (!Pattern.matches(OWNER_REGEX, owner)) {
-                showError("소유자 이름은 한글 또는 영문만 가능합니다.");
-                return;
-            }
-            Integer balance = parseNonNegativeInt(balText, "잔액");
-            if (balance == null) return;
-            if (pw.length() < 4) {
-                showError("비밀번호는 최소 4자리 이상이어야 합니다.");
-                return;
-            }
-
-            if (AccountManager.createAccount(accounts, acc, owner, balance, pw)) {
-                showInfo("계좌가 성공적으로 생성되었습니다.");
+            AccountManager.Result result = AccountManager.createAccountFromUi(accounts, acc, owner, balText, pw);
+            if (result.ok) {
+                showInfo(result.message);
                 accField.setText("");
                 ownerField.setText("");
                 balanceField.setText("");
                 pwField.setText("");
             } else {
-                showError("계좌 생성에 실패했습니다. (중복/입력 오류/파일 저장 오류)");
+                showError(result.message);
             }
         });
 
@@ -90,19 +70,13 @@ public class UserInterface {
 
         JButton depositBtn = new JButton("입금");
         depositBtn.addActionListener(e -> {
-            String acc = accField.getText().trim();
-            Integer amount = parsePositiveInt(amountField.getText().trim(), "입금액");
-            if (amount == null) return;
-
-            AccountManager.Account account = accounts.get(acc);
-            if (account == null) {
-                showError("존재하지 않는 계좌번호입니다.");
-                return;
-            }
-            boolean ok = AccountManager.deposit(accounts, account, amount);
-            if (ok) {
+            AccountManager.Result result = AccountManager.depositFromUi(accounts, accField.getText(), amountField.getText());
+            if (result.ok) {
+                showInfo(result.message);
                 accField.setText("");
                 amountField.setText("");
+            } else {
+                showError(result.message);
             }
         });
 
@@ -120,21 +94,15 @@ public class UserInterface {
 
         JButton withdrawBtn = new JButton("출금");
         withdrawBtn.addActionListener(e -> {
-            String acc = accField.getText().trim();
-            Integer amount = parsePositiveInt(amountField.getText().trim(), "출금액");
-            if (amount == null) return;
             String pw = new String(pwField.getPassword());
-
-            AccountManager.Account account = accounts.get(acc);
-            if (account == null) {
-                showError("존재하지 않는 계좌번호입니다.");
-                return;
-            }
-            boolean ok = AccountManager.withdraw(accounts, account, amount, pw);
-            if (ok) {
+            AccountManager.Result result = AccountManager.withdrawFromUi(accounts, accField.getText(), amountField.getText(), pw);
+            if (result.ok) {
+                showInfo(result.message);
                 accField.setText("");
                 amountField.setText("");
                 pwField.setText("");
+            } else {
+                showError(result.message);
             }
         });
 
@@ -153,32 +121,22 @@ public class UserInterface {
 
         JButton transferBtn = new JButton("이체");
         transferBtn.addActionListener(e -> {
-            String from = fromField.getText().trim();
-            String to = toField.getText().trim();
-            Integer amount = parsePositiveInt(amountField.getText().trim(), "이체액");
-            if (amount == null) return;
             String pw = new String(pwField.getPassword());
-
-            AccountManager.Account fromAcc = accounts.get(from);
-            if (fromAcc == null) {
-                showError("출금 계좌번호가 존재하지 않습니다.");
-                return;
-            }
-            AccountManager.Account toAcc = accounts.get(to);
-            if (toAcc == null) {
-                showError("입금 계좌번호가 존재하지 않습니다.");
-                return;
-            }
-            if (fromAcc == toAcc) {
-                showError("동일 계좌로는 이체할 수 없습니다.");
-                return;
-            }
-            boolean ok = AccountManager.transfer(accounts, fromAcc, toAcc, amount, pw);
-            if (ok) {
+            AccountManager.Result result = AccountManager.transferFromUi(
+                    accounts,
+                    fromField.getText(),
+                    toField.getText(),
+                    amountField.getText(),
+                    pw
+            );
+            if (result.ok) {
+                showInfo(result.message);
                 fromField.setText("");
                 toField.setText("");
                 amountField.setText("");
                 pwField.setText("");
+            } else {
+                showError(result.message);
             }
         });
 
@@ -195,19 +153,13 @@ public class UserInterface {
 
         JButton showBtn = new JButton("조회");
         showBtn.addActionListener(e -> {
-            String acc = accField.getText().trim();
             String pw = new String(pwField.getPassword());
-
-            AccountManager.Account account = accounts.get(acc);
-            if (account == null) {
-                showError("존재하지 않는 계좌번호입니다.");
-                return;
+            AccountManager.Result result = AccountManager.balanceFromUi(accounts, accField.getText(), pw);
+            if (result.ok) {
+                showInfo(result.message);
+            } else {
+                showError(result.message);
             }
-            if (!account.verifyPassword(pw)) {
-                showError("비밀번호가 올바르지 않습니다.");
-                return;
-            }
-            showInfo(account.getOwner() + "님의 잔액: " + account.getBal());
         });
 
         return formPanel(
@@ -244,42 +196,6 @@ public class UserInterface {
         panel.add(actionButton, gbc);
 
         return panel;
-    }
-
-    private Integer parseNonNegativeInt(String text, String label) {
-        if (text == null || text.isBlank()) {
-            showError(label + "을(를) 입력하세요.");
-            return null;
-        }
-        try {
-            int value = Integer.parseInt(text);
-            if (value < 0) {
-                showError(label + "은(는) 0 이상이어야 합니다.");
-                return null;
-            }
-            return value;
-        } catch (NumberFormatException ex) {
-            showError(label + "은(는) 숫자여야 합니다.");
-            return null;
-        }
-    }
-
-    private Integer parsePositiveInt(String text, String label) {
-        if (text == null || text.isBlank()) {
-            showError(label + "을(를) 입력하세요.");
-            return null;
-        }
-        try {
-            int value = Integer.parseInt(text);
-            if (value <= 0) {
-                showError(label + "은(는) 1 이상이어야 합니다.");
-                return null;
-            }
-            return value;
-        } catch (NumberFormatException ex) {
-            showError(label + "은(는) 숫자여야 합니다.");
-            return null;
-        }
     }
 
     private void showError(String message) {

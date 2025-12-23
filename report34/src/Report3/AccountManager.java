@@ -1,3 +1,5 @@
+package Report3;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,8 +11,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
-import java.util.regex.Pattern;
 
 /*
  * @breife: AccountManager 클래스는 계좌 생성을 비롯해 입금, 출금, 이체시의 원자성 유지 기능을 담당하며, 파일 입출력과 연동하여 계좌 정보를 관리합니다.
@@ -19,6 +19,31 @@ import java.util.regex.Pattern;
  * @note: 모든 파일 입출력은 "account_info.csv" 파일을 사용합니다.
  */
 public class AccountManager {
+
+    public static final class Result {
+        public final boolean ok;
+        public final String message;
+        public final Integer balance;
+
+        private Result(boolean ok, String message, Integer balance) {
+            this.ok = ok;
+            this.message = message;
+            this.balance = balance;
+        }
+
+        public static Result ok(String message) {
+            return new Result(true, message, null);
+        }
+
+        public static Result okWithBalance(String message, int balance) {
+            return new Result(true, message, balance);
+        }
+
+        public static Result fail(String message) {
+            return new Result(false, message, null);
+        }
+    }
+
 
     public static class Account {
         private final String code;
@@ -56,7 +81,6 @@ public class AccountManager {
 
         boolean show(String pw) {
             if (!this.pw.equals(pw)) return false;
-            System.out.println(own + "님의 잔액 : " + bal);
             return true;
         }
 
@@ -140,6 +164,109 @@ public class AccountManager {
 
     private static final Path ACCOUNT_FILE = Paths.get("account_info.csv");
 
+    // ===== GUI 전용: 검증/업무처리를 여기서 수행하고 결과 메시지를 반환 =====
+
+    public static Result createAccountFromUi(
+            Map<String, Account> accounts,
+            String accNum,
+            String owner,
+            String balanceText,
+            String password
+    ) {
+        try {
+            ErrorManagement.requireAccountsReady(accounts);
+
+            String acc = ErrorManagement.trimToEmpty(accNum);
+            String own = ErrorManagement.trimToEmpty(owner);
+            ErrorManagement.validateAccountCode(acc);
+            ErrorManagement.requireAccountNotExists(accounts, acc);
+            ErrorManagement.validateOwner(own);
+            int balance = ErrorManagement.parseNonNegativeInt("잔액", balanceText);
+            ErrorManagement.validatePasswordMinLength(password);
+
+            boolean ok = createAccount(accounts, acc, own, balance, password);
+            return ok ? Result.ok("계좌가 성공적으로 생성되었습니다.") : Result.fail("계좌 생성에 실패했습니다.");
+        } catch (ErrorManagement.ValidationException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    public static Result depositFromUi(Map<String, Account> accounts, String accNum, String amountText) {
+        try {
+            ErrorManagement.requireAccountsReady(accounts);
+            String acc = ErrorManagement.trimToEmpty(accNum);
+            ErrorManagement.validateAccountCode(acc);
+            int amount = ErrorManagement.parsePositiveInt("입금액", amountText);
+            Account account = ErrorManagement.requireAccountExists(accounts, acc);
+
+            boolean ok = deposit(accounts, account, amount);
+            return ok ? Result.ok("입금이 완료되었습니다.") : Result.fail("입금에 실패했습니다.");
+        } catch (ErrorManagement.ValidationException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    public static Result withdrawFromUi(Map<String, Account> accounts, String accNum, String amountText, String password) {
+        try {
+            ErrorManagement.requireAccountsReady(accounts);
+            String acc = ErrorManagement.trimToEmpty(accNum);
+            ErrorManagement.validateAccountCode(acc);
+            int amount = ErrorManagement.parsePositiveInt("출금액", amountText);
+            ErrorManagement.requirePasswordProvided(password);
+            Account account = ErrorManagement.requireAccountExists(accounts, acc);
+            ErrorManagement.requirePasswordMatches(account, password);
+            ErrorManagement.requireSufficientBalance(account, amount);
+
+            boolean ok = withdraw(accounts, account, amount, password);
+            return ok ? Result.ok("출금이 완료되었습니다.") : Result.fail("출금에 실패했습니다.");
+        } catch (ErrorManagement.ValidationException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    public static Result transferFromUi(
+            Map<String, Account> accounts,
+            String fromAccNum,
+            String toAccNum,
+            String amountText,
+            String password
+    ) {
+        try {
+            ErrorManagement.requireAccountsReady(accounts);
+            String from = ErrorManagement.trimToEmpty(fromAccNum);
+            String to = ErrorManagement.trimToEmpty(toAccNum);
+            ErrorManagement.validateAccountCode(from);
+            ErrorManagement.validateAccountCode(to);
+            ErrorManagement.requireDifferentAccounts(from, to);
+            int amount = ErrorManagement.parsePositiveInt("이체액", amountText);
+            ErrorManagement.requirePasswordProvided(password);
+
+            Account fromAcc = ErrorManagement.requireAccountExists(accounts, from);
+            Account toAcc = ErrorManagement.requireAccountExists(accounts, to);
+            ErrorManagement.requirePasswordMatches(fromAcc, password);
+            ErrorManagement.requireSufficientBalance(fromAcc, amount);
+
+            boolean ok = transfer(accounts, fromAcc, toAcc, amount, password);
+            return ok ? Result.ok("이체에 성공하였습니다.") : Result.fail("이체에 실패했습니다.");
+        } catch (ErrorManagement.ValidationException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    public static Result balanceFromUi(Map<String, Account> accounts, String accNum, String password) {
+        try {
+            ErrorManagement.requireAccountsReady(accounts);
+            String acc = ErrorManagement.trimToEmpty(accNum);
+            ErrorManagement.validateAccountCode(acc);
+            ErrorManagement.requirePasswordProvided(password);
+            Account account = ErrorManagement.requireAccountExists(accounts, acc);
+            ErrorManagement.requirePasswordMatches(account, password);
+            return Result.okWithBalance(account.getOwner() + "님의 잔액: " + account.getBal(), account.getBal());
+        } catch (ErrorManagement.ValidationException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+
     private static Map<String, Account> deepCopyAccounts(Map<String, Account> accounts) {
         Map<String, Account> copy = new LinkedHashMap<>();
         if (accounts == null) return copy;
@@ -172,8 +299,7 @@ public class AccountManager {
                 accounts.put(acc.getCode(), acc);
             }
         } catch (IOException | RuntimeException e) {
-            System.out.println("❌ 파일 읽기 중 오류가 발생했습니다.");
-            e.printStackTrace();
+            // GUI 전용 모드: 호출 측에서 필요 시 처리(여기서는 조용히 빈 목록 반환)
         }
         return accounts;
     }
@@ -192,64 +318,8 @@ public class AccountManager {
             Files.move(tmp, ACCOUNT_FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             return true;
         } catch (IOException e) {
-            System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
-            e.printStackTrace();
             return false;
         }
-    }
-
-    public static Account createAccount(Scanner scanner, Map<String, Account> accounts) {
-        System.out.println("=== 계좌 생성===");
-
-        String accNum;
-        while (true) {
-            accNum = getValidInput(
-                    scanner,
-                    "계좌번호를 입력하세요 (형식: 1234-1234): ",
-                    "^\\d{4}-\\d{4}$",
-                    "잘못된 형식입니다. '1234-1234' 형태로 입력해주세요."
-            );
-            if (accounts.containsKey(accNum)) {
-                System.out.println("이미 존재하는 계좌번호입니다. 다른 번호를 입력해주세요.");
-                continue;
-            }
-            break;
-        }
-
-        String owner = getValidInput(
-                scanner,
-                "소유자 이름을 입력하세요 (한글 또는 영문): ",
-                "^[가-힣a-zA-Z]+$",
-                "이름은 한글 또는 영문만 가능합니다."
-        );
-
-        String balanceStr = getValidInput(
-                scanner,
-                "잔액을 입력하세요 (숫자만): ",
-                "^[0-9]+$",
-                "0 이상의 숫자만 입력해주세요."
-        );
-        int balance = Integer.parseInt(balanceStr);
-
-        String password = getValidInput(
-                scanner,
-                "비밀번호를 입력하세요 (4자리 이상): ",
-                "^.{4,}$",
-                "비밀번호는 최소 4자리 이상이어야 합니다."
-        );
-
-        Map<String, Account> snapshot = deepCopyAccounts(accounts);
-        Account myAccount = new Account(accNum, owner, balance, password);
-        snapshot.put(myAccount.getCode(), myAccount);
-
-        if (!saveAllAccounts(snapshot)) {
-            System.out.println("계좌 생성에 실패했습니다.");
-            return null;
-        }
-
-        commitAccounts(accounts, snapshot);
-        System.out.println("✅ 계좌가 성공적으로 생성되었습니다.");
-        return accounts.get(accNum);
     }
 
     public static boolean createAccount(Map<String, Account> accounts, String accNum, String owner, int balance, String password) {
@@ -268,61 +338,49 @@ public class AccountManager {
 
     public static boolean deposit(Map<String, Account> accounts, Account account, int amount) {
         if (accounts == null || account == null) {
-            System.out.println("❌ 입금에 실패했습니다.");
             return false;
         }
         if (amount <= 0) {
-            System.out.println("❌ 입금에 실패했습니다.");
             return false;
         }
 
         Map<String, Account> snapshot = deepCopyAccounts(accounts);
         Account snapAcc = snapshot.get(account.getCode());
         if (snapAcc == null || !snapAcc.deposit(amount)) {
-            System.out.println("❌ 입금에 실패했습니다.");
             return false;
         }
         if (!saveAllAccounts(snapshot)) {
-            System.out.println("❌ 입금에 실패했습니다.");
             return false;
         }
         commitAccounts(accounts, snapshot);
-        System.out.println("✅ 입금이 완료되었습니다.");
         return true;
     }
 
     public static boolean withdraw(Map<String, Account> accounts, Account account, int amount, String password) {
         if (accounts == null || account == null) {
-            System.out.println("❌ 출금에 실패했습니다.");
             return false;
         }
         if (amount <= 0) {
-            System.out.println("❌ 출금에 실패했습니다.");
             return false;
         }
 
         Map<String, Account> snapshot = deepCopyAccounts(accounts);
         Account snapAcc = snapshot.get(account.getCode());
         if (snapAcc == null || !snapAcc.withdraw(amount, password)) {
-            System.out.println("❌ 출금에 실패했습니다.");
             return false;
         }
         if (!saveAllAccounts(snapshot)) {
-            System.out.println("❌ 출금에 실패했습니다.");
             return false;
         }
         commitAccounts(accounts, snapshot);
-        System.out.println("✅ 출금이 완료되었습니다.");
         return true;
     }
 
     public static boolean transfer(Map<String, Account> accounts, Account fromAccount, Account toAccount, int amount, String password) {
         if (accounts == null || fromAccount == null || toAccount == null) {
-            System.out.println("❌ 이체에 실패했습니다.");
             return false;
         }
         if (amount <= 0) {
-            System.out.println("❌ 이체에 실패했습니다.");
             return false;
         }
 
@@ -330,29 +388,12 @@ public class AccountManager {
         Account fromSnap = snapshot.get(fromAccount.getCode());
         Account toSnap = snapshot.get(toAccount.getCode());
         if (fromSnap == null || toSnap == null || !fromSnap.transfer(toSnap, amount, password)) {
-            System.out.println("❌ 이체에 실패했습니다.");
             return false;
         }
         if (!saveAllAccounts(snapshot)) {
-            System.out.println("❌ 파일 저장 중 오류가 발생했습니다.");
             return false;
         }
         commitAccounts(accounts, snapshot);
-        System.out.println("송금에 성공하였습니다.");
         return true;
-    }
-
-    private static String getValidInput(Scanner scanner, String prompt, String regex, String errorMsg) {
-        String input;
-        while (true) {
-            System.out.print(prompt);
-            input = scanner.nextLine();
-            if (Pattern.matches(regex, input)) {
-                break;
-            } else {
-                System.out.println(errorMsg);
-            }
-        }
-        return input;
     }
 }
