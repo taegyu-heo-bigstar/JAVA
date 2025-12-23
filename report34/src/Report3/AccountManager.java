@@ -297,7 +297,7 @@ public class AccountManager {
         if (source != null) target.putAll(source);
     }
 
-    public static Map<String, Account> loadAllAccounts() {
+    public static Map<String, Account> loadAllAccounts() throws IOException {
         Map<String, Account> accounts = new LinkedHashMap<>();
         if (!Files.exists(ACCOUNT_FILE)) {
             return accounts;
@@ -312,8 +312,6 @@ public class AccountManager {
                 Account acc = Account.fromString(trimmed);
                 accounts.put(acc.getCode(), acc);
             }
-        } catch (IOException | RuntimeException e) {
-            // GUI 전용 모드: 호출 측에서 필요 시 처리(여기서는 조용히 빈 목록 반환)
         } finally {
             FILE_IO_LOCK.unlock();
         }

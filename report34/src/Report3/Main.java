@@ -1,6 +1,7 @@
 package Report3;
 
 import java.awt.GraphicsEnvironment;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
@@ -8,7 +9,15 @@ import javax.swing.SwingUtilities;
 
 public class Main {
     public static void main(String[] args) {
-        Map<String, AccountManager.Account> accounts = AccountManager.loadAllAccounts();
+        Map<String, AccountManager.Account> accounts;
+        try {
+            accounts = AccountManager.loadAllAccounts();
+        } catch (IOException e) {
+            System.err.println("❌ 파일 입출력에 실패했습니다. 프로그램을 종료합니다.");
+            e.printStackTrace();
+            System.exit(1);
+            return;
+        }
 
         // 그래픽 환경이 아니면(예: headless) 즉시 종료
         if (GraphicsEnvironment.isHeadless()) {
